@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Audit – Wednesday MONSTER Members Draw</title>
+  <style>
+    :root{
+      --brand:#3cadc0;
+      --text:#111;
+      --muted:#666;
+      --border:#e6e6e6;
+      --shadow: 0 10px 30px rgba(0,0,0,.10);
+      --radius: 18px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+    *{box-sizing:border-box}
+    body{ margin:0; font-family:var(--sans); background:#fff; color:var(--text); }
+    header{
+      padding: 18px 16px 8px;
+      width:min(1100px, 94vw);
+      margin: 0 auto;
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    h1{ font-size: 18px; margin:0; letter-spacing:.2px; }
+    .btn{
+      border:none;
+      border-radius: 14px;
+      padding: 10px 14px;
+      font-weight: 900;
+      cursor:pointer;
+      background: var(--brand);
+      color:#04313a;
+      box-shadow: 0 8px 20px rgba(60,173,192,.25);
+      transition: transform .06s ease, filter .15s ease;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn.secondary{
+      background:#fff;
+      color: var(--text);
+      border:1px solid var(--border);
+      box-shadow: 0 8px 20px rgba(0,0,0,.06);
+    }
+    .btn.danger{
+      background:#ff5b6e;
+      color:#fff;
+      box-shadow: 0 8px 20px rgba(255,91,110,.18);
+    }
+    main{
+      width:min(1100px, 94vw);
+      margin: 0 auto 30px;
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      background:#fff;
+    }
+    .tools{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      padding: 14px 14px;
+      border-bottom:1px solid var(--border);
+      background:#fff;
+    }
+    .audit{
+      padding: 14px;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height:1.35;
+      white-space: pre;
+      overflow:auto;
+      max-height: 70vh;
+      background:#fff;
+    }
+    .hint{
+      width:min(1100px, 94vw);
+      margin: 10px auto 40px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height:1.35;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Audit – Wednesday MONSTER Members Draw</h1>
+    <a class="btn secondary" href="index.html">Back to Draw</a>
+  </header>
+
+  <main>
+    <div class="tools">
+      <button class="btn secondary" id="btnCopy">Copy Log</button>
+      <button class="btn secondary" id="btnExportCSV">Export CSV</button>
+      <button class="btn secondary" id="btnExportJSON">Export JSON</button>
+      <button class="btn" id="btnRefresh">Refresh</button>
+      <button class="btn danger" id="btnClear">Clear Log</button>
+    </div>
+    <div class="audit" id="auditBox">Loading…</div>
+  </main>
+
+  <div class="hint">
+    Entries are saved in your browser (localStorage). Export CSV/JSON after a draw session for record-keeping.
+    If you use a different device/browser, it will have its own separate log.
+  </div>
+
+  <script>
+    const AUDIT_KEY = "monster_draw_audit_v3";
+    const auditBox = document.getElementById("auditBox");
+
+    function loadAudit(){
+      try { return JSON.parse(localStorage.getItem(AUDIT_KEY) || "[]"); }
+      catch { return []; }
+    }
+
+    function escapeCSV(value){
+      const s = String(value ?? "");
+      if (/[",\n]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
+      return s;
+    }
+
+    function downloadFile(filename, content, mime){
+      const blob = new Blob([content], {type: mime || "text/plain"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function formatAudit(entries){
+      if (!entries.length) return "No audit entries yet.\n\nGo back to the draw page and run a draw.";
+      return entries.map((e, i) => {
+        return [
+          `#${i+1}`,
+          `  drawName: ${e.drawName}`,
+          `  host: ${e.host || "-"}`,
+          `  result: ${e.result}`,
+          `  chosenRange: ${e.chosenRange}`,
+          `  seriesA: ${e.seriesA}`,
+          `  seriesB: ${e.seriesB}`,
+          `  localTime: ${e.localTime}`,
+          `  utcTime: ${e.utcTime}`,
+          `  isoTime: ${e.isoTime}`,
+          `  sessionId: ${e.sessionId}`,
+          `  rng: ${e.rng}`,
+          `  method: ${e.method}`,
+          `  userAgent: ${e.userAgent}`,
+          ""
+        ].join("\n");
+      }).join("\n");
+    }
+
+    function render(){
+      const entries = loadAudit();
+      auditBox.textContent = formatAudit(entries);
+    }
+
+    document.getElementById("btnRefresh").addEventListener("click", render);
+
+    document.getElementById("btnCopy").addEventListener("click", async () => {
+      await navigator.clipboard.writeText(auditBox.textContent || "");
+    });
+
+    document.getElementById("btnClear").addEventListener("click", () => {
+      if (!confirm("Clear the audit log? This cannot be undone.")) return;
+      localStorage.removeItem(AUDIT_KEY);
+      render();
+    });
+
+    document.getElementById("btnExportJSON").addEventListener("click", () => {
+      const entries = loadAudit();
+      if (!entries.length) return alert("No audit entries to export.");
+      const fname = `monster-draw-audit_${new Date().toISOString().slice(0,10)}.json`;
+      downloadFile(fname, JSON.stringify(entries, null, 2), "application/json");
+    });
+
+    document.getElementById("btnExportCSV").addEventListener("click", () => {
+      const entries = loadAudit();
+      if (!entries.length) return alert("No audit entries to export.");
+
+      const header = [
+        "index","drawName","host","result","chosenRange","seriesA","seriesB","localTime","utcTime","isoTime","sessionId","rng","method","userAgent"
+      ];
+
+      const rows = entries.map((e,i) => ([
+        i+1, e.drawName, e.host, e.result, e.chosenRange, e.seriesA, e.seriesB,
+        e.localTime, e.utcTime, e.isoTime, e.sessionId, e.rng, e.method, e.userAgent
+      ].map(escapeCSV).join(",")));
+
+      const csv = header.join(",") + "\n" + rows.join("\n");
+      const fname = `monster-draw-audit_${new Date().toISOString().slice(0,10)}.csv`;
+      downloadFile(fname, csv, "text/csv");
+    });
+
+    render();
+  </script>
+</body>
+</html>
